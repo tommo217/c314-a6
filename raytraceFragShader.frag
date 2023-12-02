@@ -130,7 +130,7 @@ vec3 localShade(vec3 P, vec3 N, vec3 surfColor) {
 
 vec3 bgColor(ray myRay) 
 {
-    float yPlane = -10.0;
+  float yPlane = -10.0;
   float t = (yPlane - myRay.origin.y)/myRay.direction.y;
   if (t<0.0) return backgroundColor;            // ray intersects behind the eye, so is looking away from the plane
     vec3 P = myRay.origin + t*myRay.direction;        // compute intersection point
@@ -164,6 +164,14 @@ vec3 rayCast2(ray myRay)             // return the color for this reflected ray
 // (1) find the nearest intersection 
 // (2) if hit an object, then compute and return the local color;
 //     otherwise return black
+  float nearest_t = nearestT(myRay);
+  if (nearest_t < largeT) {
+    // TODO
+    vec3 P = myRay.origin + myRay.direction * nearest_t; 
+    vec3 N = normalize(P - nearestSphere.position); 
+    vec3 localColor = localShade(P, N, nearestSphere.mtrl.color); 
+    return localColor;     
+  }
 
   return bgColor(myRay);       // return checkeboard texture
 }
@@ -189,41 +197,29 @@ vec3 rayCast(ray myRay)             // return color
     // (2) compute the actual intersection point, P, given the nearest_t value;
     // (3) compute the normal, N;  the center of the sphere is given by   nearestSphere.position
     // (4) call the localShade function to compute the local shading
+    // (4.5)  you will notice that the light source sphere itself ends up being black.
+    //        This is because the light source point is inside the sphere, so N.L = -1 everywhere.
+    //        You can test for this and then compute local shading with a flipped normal
+    //        for this case. I.e., if nearestSphere.isLight==true  then
+    //        call localShade(), but with -N instead of N.
     vec3 P = myRay.origin + myRay.direction * nearest_t; 
     vec3 N = normalize(P - nearestSphere.position); 
+    if (nearestSphere.isLight) N = -N;  
     vec3 localColor = localShade(P, N, nearestSphere.mtrl.color); 
-
-    // (d) cast shadow on
-    // create ray from L to P, test if an object exists
-    // float shadowScale = 1.0; 
-    // ray shadowRay; 
-    // shadowRay.origin = P; 
-    // shadowRay.direction = lightPosition - P; 
-    // nearestT(shadowRay); 
-    // if (nearestSphere.isLight==false) 
-    //   shadowScale = 0.4; 
-    return localColor; 
-
-// (4.5)  you will notice that the light source sphere itself ends up being black.
-//        This is because the light source point is inside the sphere, so N.L = -1 everywhere.
-//        You can test for this and then compute local shading with a flipped normal
-//        for this case. I.e., if nearestSphere.isLight==true  then
-//        call localShade(), but with -N instead of N.
 
 // (5) develop the parameters for the reflected ray
 
-//    ray reflectedRay;
-//    reflectedRay.origin = 
-//    reflectedRay.direction = 
+   ray reflectedRay;
+   reflectedRay.origin = P; 
+   reflectedRay.direction = reflect(myRay.direction, N); 
 
 // (6) compute the color of the reflected ray; 
 //     Normally this would be a recursive call to rayCast(), but GLSH does not support recursion,
 //     so we will instead call rayCast2():
-//    vec3 reflectedColor = rayCast2(reflectedRay);
+   vec3 reflectedColor = rayCast2(reflectedRay);
 
 // (7) return the sum of the local color and the reflected ray, weighted by kLocal and kReflect
-//    return (kLocal*localColor + kReflect*reflectedColor);
-
+   return (kLocal*localColor + kReflect*reflectedColor);
   }
   return bgColor(myRay);   // if no objects are hit, then return the background checkerboard or sky color 
 }
