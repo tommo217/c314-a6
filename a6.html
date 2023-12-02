@@ -131,14 +131,23 @@ float nearestT(ray myRay)
 vec3 localShade(vec3 P, vec3 N, vec3 surfColor) {
   ray shadowRay;
 
-/// TO DO: (c)
+/// TO DO: (c) (d)
 //  (1) compute and return simple diffuse shading, i.e., (N.L)*surfColor,
 //      where surfColor is the assigned color of the surface. Clamp values as appropriate.
 //  (2) later, additionally check to see if the object is in shadow by building and casting
 //      a shadow ray.  If the point is in shadow, return black. Otherwise return the diffuse shading.
 
   vec3 L = normalize(lightPosition - P); 
-  return dot(N, L) * surfColor;
+  vec3 diffuseColor = dot(N, L) * surfColor;
+
+  shadowRay.origin = P; 
+  shadowRay.direction = lightPosition - P; 
+  nearestT(shadowRay); 
+  if (nearestSphere.isLight==false) {
+    return 0.1 * surfColor; 
+  }
+  
+  return diffuseColor; 
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -208,7 +217,10 @@ vec3 rayCast(ray myRay)             // return color
     // (4) call the localShade function to compute the local shading
     vec3 P = myRay.origin + myRay.direction * nearest_t; 
     vec3 N = normalize(P - nearestSphere.position); 
-    return localShade(P, N, nearestSphere.mtrl.color); 
+    vec3 localColor = localShade(P, N, nearestSphere.mtrl.color); 
+
+    // (d) cast shadow on
+    return localColor; 
 
 // (4.5)  you will notice that the light source sphere itself ends up being black.
 //        This is because the light source point is inside the sphere, so N.L = -1 everywhere.
