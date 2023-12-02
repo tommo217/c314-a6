@@ -204,7 +204,7 @@ vec3 rayCast(ray myRay)             // return color
     //        call localShade(), but with -N instead of N.
     vec3 P = myRay.origin + myRay.direction * nearest_t; 
     vec3 N = normalize(P - nearestSphere.position); 
-    if (nearestSphere.isLight) N = -N;  
+    if (nearestSphere.isLight) return nearestSphere.mtrl.color;  
     vec3 localColor = localShade(P, N, nearestSphere.mtrl.color); 
 
 // (5) develop the parameters for the reflected ray
