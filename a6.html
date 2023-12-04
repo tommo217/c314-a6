@@ -138,13 +138,13 @@ vec3 localShade(vec3 P, vec3 N, vec3 surfColor) {
 //      a shadow ray.  If the point is in shadow, return black. Otherwise return the diffuse shading.
 
   vec3 L = normalize(lightPosition - P); 
-  vec3 diffuseColor = dot(N, L) * surfColor;
+  vec3 diffuseColor = min(max(dot(N, L), 0.0), 1.0) * surfColor;
 
   shadowRay.origin = P; 
   shadowRay.direction = lightPosition - P; 
   nearestT(shadowRay); 
   if (nearestSphere.isLight==false) {
-    return 0.1 * surfColor; 
+    return vec3(0.0, 0.0, 0.0); 
   }
 
   return diffuseColor; 

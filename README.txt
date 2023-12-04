@@ -2,7 +2,7 @@ CPSC 314 A6  (Sept 2023)
 
 NAME or NAMES:
 
-Martin Lou, Tom Mo
+Martin Lou (35042712), Tom Mo
 
 CREATIVE COMPONENT:
 
