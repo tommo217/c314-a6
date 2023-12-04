@@ -4,9 +4,11 @@ NAME or NAMES:
 
 Martin Lou (35042712), Tom Mo
 
+
 CREATIVE COMPONENT:
 
-Document the creative component changes.
+Implemented ability to toggle bounce count from 1 to 3
+
 
 COMMENTS:
 
@@ -18,7 +20,14 @@ Call Graph
 main()
 	initialize()
 	rayCast()
-		nearestT()  -- t value of closest intersection with ray
+		localShade()
+		nearestT()
 			sphere_intersect()
 		bgColor()
-			nearestT()*
+			nearestT()
+				sphere_intersect()
+
+rayCast2()
+	bgColor()
+		nearestT()
+			sphere_intersect()
