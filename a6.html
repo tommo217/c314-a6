@@ -125,7 +125,7 @@ float plane_intersect(ray myRay, plane pl) {
   float maxY = pl.position.y + (pl.height/2.0); 
   float minZ = pl.position.z - (pl.width/2.0); 
 
-  if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY ||myRay.direction.z > 0.0) {
+  if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY || myRay.direction.z > 0.0) { // direction Z check necessary for rays going behind camera
     t = largeT + 1.0; 
   } else {
     intersectPlane = pl; 
