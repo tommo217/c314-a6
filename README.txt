@@ -8,7 +8,7 @@ Martin Lou (35042712), Tom Mo (67665356)
 CREATIVE COMPONENT:
 
 Implemented ability to toggle bounce count from 1 to 3
-
+Implemented a mirror-like plane that reflects the entire scene
 
 COMMENTS:
 

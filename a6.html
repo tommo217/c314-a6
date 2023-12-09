@@ -25,7 +25,6 @@ void main()
 </script>
 
 <script id="raytraceFragShader" type="x-shader/x-fragment">
-
 uniform vec2 resolution;
 uniform float myFloat1;
 uniform float myFloat2;
@@ -73,10 +72,14 @@ struct sphere {
 struct plane {
   material mtrl;
   vec3 position;
+  vec3 N; 
   float width;
   float height;
 };
 
+bool intersectIsPlane; // flag to distinguish intersection shape
+plane intersectPlane; 
+plane scene_plane; 
 sphere nearestSphere;
 sphere scene_spheres[n_spheres];
 
@@ -104,6 +107,33 @@ float sphere_intersect(ray myRay, sphere sphr) {
   }
 }
 
+
+// (f)
+// intersection test with bouded plane
+float plane_intersect(ray myRay, plane pl) {
+  vec3 N = pl.N; 
+  float d = dot(N, pl.position); 
+  float NC = dot(N, myRay.origin); 
+  float NV = dot(N, myRay.direction); 
+  float t = (d - NC) / NV; 
+  // intersect with plane
+  vec3 pt = myRay.origin + (t * myRay.direction); 
+
+  float minX = pl.position.x - (pl.width/2.0); 
+  float maxX = pl.position.x + (pl.width/2.0); 
+  float minY = pl.position.y - (pl.height/2.0); 
+  float maxY = pl.position.y + (pl.height/2.0); 
+  float minZ = pl.position.z - (pl.width/2.0); 
+
+  if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY || myRay.direction.z > 0.0) { // direction Z check necessary for rays going behind camera
+    t = largeT + 1.0; 
+  } else {
+    intersectPlane = pl; 
+  }
+
+  return t; 
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 // nearestT():  cast a ray, and computes t for closest intersection in the direction of +t
 //          If there is no intersection, it returns  largeT
@@ -111,6 +141,8 @@ float sphere_intersect(ray myRay, sphere sphr) {
 
 float nearestT(ray myRay)
 {
+  intersectIsPlane = false; 
+  
   float nearest_t = largeT;
   float curr_t;
   for (int i = 0; i < n_spheres; ++i) {                   
@@ -121,6 +153,15 @@ float nearestT(ray myRay)
       nearestSphere = scene_spheres[i];
     }
   }
+
+  // plane intersect test
+  curr_t = plane_intersect(myRay, scene_plane); 
+  if (curr_t < nearest_t) {
+    nearest_t = curr_t; 
+    intersectIsPlane = true;
+    intersectPlane = scene_plane; 
+  }
+
   return nearest_t;
 }
 
@@ -186,18 +227,27 @@ vec3 bgColor(ray myRay)
 
 vec3 rayCast3(ray myRay)             // return the color for this reflected ray
 {
-  // TODO:  this will be a slightly simplified version of rayCast()
-  // (1) find the nearest intersection 
-  // (2) if hit an object, then compute and return the local color;
-  //     otherwise return black
+
   float nearest_t = nearestT(myRay);
   if (nearest_t < largeT) {
-    vec3 P = myRay.origin + nearest_t * myRay.direction;
-    vec3 N = normalize(P - nearestSphere.position);
+    vec3 P; 
+    vec3 N; 
+    vec3 localColor; 
+    
+    if (intersectIsPlane) { 
+      // hit a plane
+      P = myRay.origin + myRay.direction * nearest_t; 
+      N = intersectPlane.N; 
+      localColor = localShade(P, intersectPlane.N, intersectPlane.mtrl.color); 
+    } else {
+      // hit a sphere
+      P = myRay.origin + nearest_t * myRay.direction;
+      N = normalize(P - nearestSphere.position);
 
-    if (nearestSphere.isLight) N = -N;
+      if (nearestSphere.isLight) N = -N;
 
-    vec3 localColor = localShade(P,N,nearestSphere.mtrl.color);
+      localColor = localShade(P,N,nearestSphere.mtrl.color);
+    }
 
     return localColor;
   }
@@ -211,13 +261,27 @@ vec3 rayCast2(ray myRay, int bounceCount)
   float kReflect = nearestSphere.mtrl.kReflect;
   float kLocal = nearestSphere.mtrl.kLocal;
   if (nearest_t < largeT) {
+    vec3 P; 
+    vec3 N; 
+    vec3 localColor; 
+    
+    if (intersectIsPlane) { 
+      // hit a plane
+      P = myRay.origin + myRay.direction * nearest_t; 
+      N = intersectPlane.N; 
+      localColor = localShade(P, intersectPlane.N, intersectPlane.mtrl.color); 
+      kReflect = intersectPlane.mtrl.kReflect; 
+      kLocal = intersectPlane.mtrl.kLocal; 
+    } else {
+      // hit a sphere
+      P = myRay.origin + nearest_t * myRay.direction;
+      N = normalize(P - nearestSphere.position);
 
-    vec3 P = myRay.origin + nearest_t * myRay.direction;
-    vec3 N = normalize(P - nearestSphere.position);
+      if (nearestSphere.isLight) N = -N;
+      
 
-    if (nearestSphere.isLight) N = -N;
-
-    vec3 localColor = localShade(P,N,nearestSphere.mtrl.color);
+      localColor = localShade(P,N,nearestSphere.mtrl.color);
+    }
 
     if (bounceCount == 1) return localColor;
     
@@ -240,7 +304,7 @@ vec3 rayCast2(ray myRay, int bounceCount)
 
 vec3 rayCast(ray myRay, int bounceCount)             // return color
 {
-  // TODO:
+  // 
   // (1) if hit an object, i.e., a sphere, then compute and return the local color;
   //     otherwise returns the background color, via bgColor(myRay)
 
@@ -248,39 +312,52 @@ vec3 rayCast(ray myRay, int bounceCount)             // return color
   float kReflect = nearestSphere.mtrl.kReflect;         // keep these lines for use in step (7)
   float kLocal = nearestSphere.mtrl.kLocal;       // keep these lines for use in step (7)
   if (nearest_t < largeT) {       // hit an object?
-    // (b)
-    // return nearestSphere.mtrl.color;           // color this white;  replace this with steps 1 above; and later with the steps below)
+    vec3 P; 
+    vec3 N; 
+    vec3 localColor; 
+    
+    if (intersectIsPlane) { // hit a plane
+      P = myRay.origin + myRay.direction * nearest_t; 
+      N = intersectPlane.N; 
+      localColor = localShade(P, intersectPlane.N, intersectPlane.mtrl.color); 
+      kReflect = intersectPlane.mtrl.kReflect; 
+      kLocal = intersectPlane.mtrl.kLocal; 
+    } else {
+      // (b)
+      // return nearestSphere.mtrl.color; 
 
-    // (c)
-    // (2) compute the actual intersection point, P, given the nearest_t value;
-    // (3) compute the normal, N;  the center of the sphere is given by   nearestSphere.position
-    // (4) call the localShade function to compute the local shading
-    // (4.5)  you will notice that the light source sphere itself ends up being black.
-    //        This is because the light source point is inside the sphere, so N.L = -1 everywhere.
-    //        You can test for this and then compute local shading with a flipped normal
-    //        for this case. I.e., if nearestSphere.isLight==true  then
-    //        call localShade(), but with -N instead of N.
-    vec3 P = myRay.origin + myRay.direction * nearest_t; 
-    vec3 N = normalize(P - nearestSphere.position); 
-    if (nearestSphere.isLight) return nearestSphere.mtrl.color;  
-    vec3 localColor = localShade(P, N, nearestSphere.mtrl.color); 
+      // (c)
+      // (2) compute the actual intersection point, P, given the nearest_t value;
+      // (3) compute the normal, N;  the center of the sphere is given by   nearestSphere.position
+      // (4) call the localShade function to compute the local shading
+      // (4.5)  you will notice that the light source sphere itself ends up being black.
+      //        This is because the light source point is inside the sphere, so N.L = -1 everywhere.
+      //        You can test for this and then compute local shading with a flipped normal
+      //        for this case. I.e., if nearestSphere.isLight==true  then
+      //        call localShade(), but with -N instead of N.
+      P = myRay.origin + myRay.direction * nearest_t; 
+      N = normalize(P - nearestSphere.position); 
+      if (nearestSphere.isLight) return nearestSphere.mtrl.color;
+      localColor = localShade(P, N, nearestSphere.mtrl.color); 
+    }
 
     if (bounceCount == 1) return localColor;
 
 // (5) develop the parameters for the reflected ray
 
-   ray reflectedRay;
-   reflectedRay.origin = P; 
-   reflectedRay.direction = reflect(myRay.direction, N); 
+    ray reflectedRay;
+    reflectedRay.origin = P; 
+    reflectedRay.direction = reflect(myRay.direction, N); 
 
 // (6) compute the color of the reflected ray; 
 //     Normally this would be a recursive call to rayCast(), but GLSH does not support recursion,
 //     so we will instead call rayCast2():
-   vec3 reflectedColor = rayCast2(reflectedRay, bounceCount - 1);
+    vec3 reflectedColor = rayCast2(reflectedRay, bounceCount - 1);
 
 // (7) return the sum of the local color and the reflected ray, weighted by kLocal and kReflect
-   return (kLocal*localColor + kReflect*reflectedColor);
+    return (kLocal*localColor + kReflect*reflectedColor);
   }
+
   return bgColor(myRay);   // if no objects are hit, then return the background checkerboard or sky color 
 }
 /////////////////////////////////////////////////////////////////////////////////
@@ -292,7 +369,7 @@ void initialize()
   // INIT SPHERES
 
   sphere sphere0;
-    sphere0.mtrl.color = vec3(1.0, 1.0, 0.0);
+  sphere0.mtrl.color = vec3(1.0, 1.0, 0.0);
   sphere0.mtrl.kReflect = 0.0;
   sphere0.mtrl.kLocal = 1.0;
   sphere0.radius = 0.1;
@@ -329,6 +406,16 @@ void initialize()
   scene_spheres[1] = sphere1;
   scene_spheres[2] = sphere2;
   scene_spheres[3] = sphere3;  
+
+  plane mirror; 
+  mirror.mtrl.color = vec3(0.0, 0.2, 0.0); 
+  mirror.mtrl.kReflect = 0.8; 
+  mirror.mtrl.kLocal = 0.2; 
+  mirror.N = normalize(vec3(0.0, -0.1, 1.0)); // point to camera
+  mirror.width = 15.0; 
+  mirror.height = 6.0; 
+  mirror.position = vec3(-1.0, 3.0, -25.0); 
+  scene_plane = mirror; 
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -344,8 +431,8 @@ void main() {
   float a = resolution.x/resolution.y;
   vec2 uv = (-1.0 + 2.0*gl_FragCoord.xy / resolution.xy) * vec2(a, 1.0);   // normalized screen coords (u,v)
 
-   // define the ray (in VCS) that corresponds to the current fragment
-   // P(0,0,0) --> P(x,y,-1.0)    point on the plane z=-1.0, where x=uv[0], y=uv[1]
+    // define the ray (in VCS) that corresponds to the current fragment
+    // P(0,0,0) --> P(x,y,-1.0)    point on the plane z=-1.0, where x=uv[0], y=uv[1]
   ray pixelRay;
   float sf = 0.5;    // scale factor that controls field-of-view
   pixelRay.origin = vec3(0,0,0);                       // ray starts at eye:  origin
